@@ -752,7 +752,7 @@
       if (!pill) {
         pill = root.document.createElement("div");
         pill.setAttribute("role", "status");
-        pill.style.cssText = "position:fixed;top:calc(10px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:60;padding:6px 12px;border-radius:999px;font:500 11px/1.2 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.06em;background:rgba(14,16,20,.8);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);white-space:nowrap;pointer-events:none";
+        pill.style.cssText = "position:fixed;top:calc(10px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:60;padding:6px 12px;border-radius:999px;font:600 10px/1.2 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;letter-spacing:.03em;background:rgba(28,28,30,.92);border:1px solid #2c2c2e;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);white-space:nowrap;pointer-events:none";
         root.document.body.appendChild(pill);
       }
       var st = engine.status || {};

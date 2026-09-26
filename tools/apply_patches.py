@@ -51,14 +51,11 @@ css = open(css_path, encoding="utf-8").read()
 css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
 css = "\n".join(l for l in css.splitlines() if l.strip())
 sub1("stylesheet", r'(<style rel="stylesheet" crossorigin>)(.*?)(</style>)', lambda m: m.group(1) + css + m.group(3), re.S)
-lit("theme-color", '<meta name="theme-color" content="#0a0e17" />', '<meta name="theme-color" content="#060709" />')
+lit("theme-color", '<meta name="theme-color" content="#0a0e17" />', '<meta name="theme-color" content="#000000" />')
 sub1("description", r'<meta name="description" content="[^"]*" />',
      '<meta name="description" content="Betfolio \u2014 your live betting portfolio. Total exposure and potential reward, updating as games play out." />')
 sub1("title", r'<title>[^<]*</title>',
-     '<link rel="preconnect" href="https://fonts.googleapis.com" />\n'
-     '    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />\n'
-     '    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />\n'
-     '    <title>Betfolio \u2014 Live Betting Portfolio</title>\n'
+     '<title>Betfolio \u2014 Live Betting Portfolio</title>\n'
      f'    <script src="./slip.js?v={BUILD}"></script>')
 lit("live.js", "  </head>", f'    <script defer src="./live.js?v={BUILD}"></script>\n  </head>')
 
