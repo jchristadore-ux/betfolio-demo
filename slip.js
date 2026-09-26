@@ -205,7 +205,7 @@ window.__bfFix = function (r, lines) {
   root.__bfPages = [];
   root.__bfAddPage = function (data) {
     try {
-      var page = { w: 0, h: 0, lines: [] }, lum = root.__bfLum;
+      var page = { w: 0, h: 0, lines: [] }, lum = root.__bfLum, raw = [];
       if (lum) { page.w = lum.w; page.h = lum.h; page.lum = lum.lum; }
       var bi = 0;
       (data.blocks || []).forEach(function (b) {
@@ -214,9 +214,35 @@ window.__bfFix = function (r, lines) {
           (p.lines || []).forEach(function (l) {
             var t = String(l.text || "").replace(/[−–—](?=\d)/g, "-").replace(/\s+/g, " ").trim();
             if (!t) return;
-            var words = (l.words || []).map(function (w) { return { t: w.text, x0: w.bbox.x0, x1: w.bbox.x1, y0: w.bbox.y0, y1: w.bbox.y1, conf: w.confidence }; });
-            page.lines.push({ text: t, block: bi, x0: l.bbox.x0, x1: l.bbox.x1, y0: l.bbox.y0, y1: l.bbox.y1, h: l.bbox.y1 - l.bbox.y0, conf: (l.confidence || 50) / 100, words: words });
+            var words = (l.words || []).map(function (w) { return { t: w.text, x0: w.bbox.x0, x1: w.bbox.x1, y0: w.bbox.y0, y1: w.bbox.y1, conf: w.confidence }; })
+              .filter(function (w) { return String(w.t || "").trim(); }).sort(function (a, b) { return a.x0 - b.x0; });
+            if (!words.length) return;
+            raw.push({ t: t, bi: bi, l: l, words: words });
           });
+        });
+      });
+      // Column starts = left edges shared by several lines. A line that runs across
+      // a gutter is split where a word begins at another column's left edge.
+      var starts = [], tolX = 14;
+      raw.forEach(function (r) {
+        var x = r.words[0].x0, c = starts.find(function (c) { return Math.abs(c.x - x) <= tolX; });
+        if (c) { c.n++; } else starts.push({ x: x, n: 1 });
+      });
+      starts = starts.filter(function (c) { return c.n >= 2; });
+      raw.forEach(function (r) {
+        var ws = r.words, lh = r.l.bbox.y1 - r.l.bbox.y0, segs = [[ws[0]]];
+        for (var wi = 1; wi < ws.length; wi++) {
+          var gap = ws[wi].x0 - ws[wi - 1].x1;
+          var atCol = starts.some(function (c) { return Math.abs(c.x - ws[wi].x0) <= tolX; });
+          if (gap > Math.max(lh * 0.8, 18) || (atCol && gap > lh * 0.45)) segs.push([]);
+          segs[segs.length - 1].push(ws[wi]);
+        }
+        segs.forEach(function (sg, si) {
+          var st = segs.length === 1 ? r.t : sg.map(function (w) { return w.t; }).join(" ").replace(/[\u2212\u2013\u2014](?=\d)/g, "-").trim();
+          var cs = sg.map(function (w) { return (w.conf || 50) / 100; });
+          page.lines.push({ text: st, block: r.bi * 100 + si, x0: sg[0].x0, x1: sg[sg.length - 1].x1,
+            y0: Math.min.apply(null, sg.map(function (w) { return w.y0; })), y1: Math.max.apply(null, sg.map(function (w) { return w.y1; })),
+            h: lh, conf: segs.length === 1 ? (r.l.confidence || 50) / 100 : cs.reduce(function (x, y) { return x + y; }, 0) / cs.length, words: sg });
         });
       });
       if (!page.w) page.lines.forEach(function (l) { page.w = Math.max(page.w, l.x1); page.h = Math.max(page.h, l.y1); });
@@ -558,7 +584,7 @@ window.__bfFix = function (r, lines) {
       : legs[0].label;
     var issues = [];
     if (head.legCount && head.legCount < legs.length) issues.push("Found " + legs.length + " legs but the slip says " + head.legCount + " \u2014 remove any extra leg below");
-    if (head.legCount && head.legCount > legs.length) issues.push("Found " + legs.length + " of " + head.legCount + " legs — add the rest of the slip's screenshots (up to 5) in one upload, or add the missing legs below");
+    if (head.legCount && head.legCount > legs.length) issues.push("Found " + legs.length + " of " + head.legCount + " legs — add the rest of the slip's screenshots (up to 12) in one upload, or add the missing legs below");
     var text = [];
     pages.forEach(function (p) { p.lines.forEach(function (l) { if (!legs.some(function (lg) { return lg.lines.indexOf(l) >= 0; })) text.push(l.text); }); });
     legs.forEach(function (l) { text.push(l.label); if (l.market) text.push(l.market); if (l.matchup) text.push(l.matchup); });
