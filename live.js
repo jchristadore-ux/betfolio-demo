@@ -285,6 +285,8 @@
       (g.statistics || []).forEach(function (cat) {
         var keys = cat.keys || cat.names || [], labels = cat.labels || cat.names || [];
         var cname = norm(cat.name || cat.type || "");
+        // MLB tables come without a name: tell batting from pitching by their columns.
+        if (!cname) cname = keys.indexOf("fullInnings.partInnings") >= 0 || keys.indexOf("earnedRuns") >= 0 ? "pitching" : keys.indexOf("hits-atBats") >= 0 || keys.indexOf("atBats") >= 0 ? "batting" : "";
         (cat.athletes || []).forEach(function (a) {
           var ath = a.athlete || {}, name = ath.displayName || ath.fullName || ath.shortName;
           if (!name) return;
@@ -486,7 +488,7 @@
   };
 
   // Find the event for a team-based leg inside one league's scoreboards.
-  Engine.prototype.searchEvents = function (sport, dates, test) {
+  Engine.prototype.searchEvents = function (sport, dates, test, placedAt) {
     var self = this, lgs = LEAGUES[sport] || [];
     var jobs = [];
     lgs.forEach(function (lg) {
@@ -497,17 +499,23 @@
       });
     });
     return Promise.all(jobs).then(function (res) {
-      var best = null, errors = 0;
+      var cands = [], errors = 0, seenIds = {};
       res.forEach(function (r) {
         if (r.error) errors++;
         r.events.forEach(function (ev) {
+          if (seenIds[ev.id]) return;
           var s = test(ev);
-          if (s > 0) {
-            var st = stateOf(ev), rank = s + (st.state === "in" ? 1000 : st.state === "pre" ? 500 : 0);
-            if (!best || rank > best.rank) best = { rank: rank, ev: ev, lg: r.lg, sport: sport, date: r.date };
-          }
+          if (s > 0) { seenIds[ev.id] = 1; cands.push({ s: s, ev: ev, lg: r.lg, sport: sport, date: r.date, t: new Date(ev.date).getTime() }); }
         });
       });
+      // Best match quality first (both teams of the slip's matchup beat one team);
+      // among equally good matches, the game nearest after the slip was placed.
+      var top = cands.reduce(function (m, c) { return Math.max(m, c.s); }, 0);
+      var pool = cands.filter(function (c) { return c.s >= top * 0.85; });
+      var placed = placedAt ? new Date(placedAt).getTime() : Date.now();
+      var after = pool.filter(function (c) { return c.t >= placed - 12 * 3600000; }).sort(function (a, b) { return a.t - b.t; });
+      var before = pool.filter(function (c) { return c.t < placed - 12 * 3600000; }).sort(function (a, b) { return b.t - a.t; });
+      var best = after[0] || before[0] || null;
       return { best: best, allFailed: errors === res.length && res.length > 0 };
     });
   };
@@ -532,19 +540,19 @@
       return score;
     };
     if (spec.kind === "prop") {
-      if (mu) return this.searchIn(sports, dates, test);
+      if (mu) return this.searchIn(sports, dates, test, bet.placedAt);
       return Promise.resolve({ best: null, scanProp: true });
     }
     if (!text && !mu) return Promise.resolve({ best: null });
-    return this.searchIn(sports, dates, test);
+    return this.searchIn(sports, dates, test, bet.placedAt);
   };
 
-  Engine.prototype.searchIn = function (sports, dates, test) {
+  Engine.prototype.searchIn = function (sports, dates, test, placedAt) {
     var self = this, i = 0, failed = 0;
     function next() {
       if (i >= sports.length) return Promise.resolve({ best: null, allFailed: failed === sports.length });
       var sp = sports[i++];
-      return self.searchEvents(sp, dates, test).then(function (r) {
+      return self.searchEvents(sp, dates, test, placedAt).then(function (r) {
         if (r.allFailed) failed++;
         return r.best ? r : next();
       });
