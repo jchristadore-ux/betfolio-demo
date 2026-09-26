@@ -128,7 +128,7 @@
       if (metric.yes) { line = 0.5; }
       else if (ou) { dir = /^u/.test(ou[1]) ? "under" : "over"; line = parseFloat(ou[2]); }
       else { line = parseFloat(plus[1]) - 0.5; }
-      return { kind: "prop", raw: raw, player: subject, metric: metric.id, metricLabel: metric.label, unit: metric.unit, dir: dir, line: line, target: dir === "over" ? Math.floor(line) + 1 : line };
+      return { kind: "prop", raw: raw, player: subject, display: raw.split(/\s+/).slice(0, subject.split(" ").length).join(" ").replace(/[-\u2013]$/, "").trim(), metric: metric.id, metricLabel: metric.label, unit: metric.unit, dir: dir, line: line, target: dir === "over" ? Math.floor(line) + 1 : line };
     }
 
     if (/^draw\b|\btie\b|\bdraw$/.test(own)) return { kind: "draw", raw: raw };
@@ -443,7 +443,7 @@
     if (st.state === "pre") return { status: "pending", detail: spec.metricLabel + " · " + st.detail };
     var p = findPlayer(playerTable(summary), spec.player);
     var final = st.state === "post";
-    if (!p) return { status: final ? "pending" : "live", detail: (final ? "No stats for " : "Waiting for stats: ") + titleCase(spec.player) + " · " + (final ? "Final" : st.detail), current: null };
+    if (!p) return { status: final ? "pending" : "live", detail: (final ? "No stats for " : "Waiting for stats: ") + (spec.display || titleCase(spec.player)) + " · " + (final ? "Final" : st.detail), current: null };
     var v = statValue(p, spec.metric, sport);
     if (v == null) v = 0;
     var status;
@@ -629,7 +629,7 @@
         if (!best) {
           if (r && r.allFailed) anyError = true;
           return Object.assign({}, leg, {
-            detail: r && r.allFailed ? "Live data unavailable — retrying" : spec.kind === "prop" ? "Waiting for " + titleCase(spec.player) + "'s game to start" : "Game not found yet — checking again soon",
+            detail: r && r.allFailed ? "Live data unavailable — retrying" : spec.kind === "prop" ? "Waiting for " + (spec.display || titleCase(spec.player)) + "'s game to start" : "Game not found yet — checking again soon",
             live: { spec: spec }
           });
         }
@@ -674,7 +674,7 @@
       if (propLeg && (bet.betType === "player_prop" || bet.playerStat || newLegs.length === 1)) {
         var sp = propLeg.live.spec;
         patch.playerStat = {
-          player: propLeg.live.player || titleCase(sp.player), teamAbbr: propLeg.live.team || "",
+          player: propLeg.live.player || sp.display || titleCase(sp.player), teamAbbr: propLeg.live.team || "",
           metric: sp.metricLabel, current: propLeg.live.current != null ? propLeg.live.current : 0,
           target: sp.dir === "over" ? Math.floor(sp.line) + 1 : sp.line, unit: sp.unit
         };
