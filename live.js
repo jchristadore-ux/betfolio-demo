@@ -210,10 +210,9 @@
     var c = this.cache[url], t = this.now(), self = this;
     if (c && c.data && t - c.at < ttl) return Promise.resolve(c.data);
     if (c && c.pending) return c.pending;
-    var p = this.fetch(url).then(function (r) {
-      if (!r.ok) throw new Error("HTTP " + r.status + " " + url);
-      return r.json();
-    }).then(function (data) {
+    var alt = url.replace("//site.api.espn.com/", "//site.web.api.espn.com/");
+    var once = function (u) { return self.fetch(u).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status + " " + u); return r.json(); }); };
+    var p = once(url).catch(function (e) { if (alt === url) throw e; return once(alt); }).then(function (data) {
       self.cache[url] = { at: self.now(), data: data };
       self.errors = 0;
       return data;
@@ -719,7 +718,9 @@
         }
       });
       self.lastLive = live;
-      self.status = { ok: !err, at: self.now(), message: err ? "Live data unavailable" : "" };
+      var tracked = results.filter(Boolean).length;
+      self.status = { ok: !err, at: self.now(), message: err ? "Live data unavailable" : "", tracked: tracked, live: live, fetchedOk: self.client.errors === 0 };
+      if (typeof self.onStatus === "function") { try { self.onStatus(self.status); } catch (e) {} }
       self.running = false;
       return live;
     }, function (e) { self.running = false; throw e; });
@@ -744,6 +745,28 @@
       log: function () { try { console.warn.apply(console, ["[betfolio live]"].concat([].slice.call(arguments))); } catch (e) {} }
     });
     root.__bfLive = engine;
+    var pill = null;
+    function paint() {
+      var onLive = /#\/app\/live/.test(root.location.hash);
+      if (!onLive) { if (pill) pill.style.display = "none"; return; }
+      if (!pill) {
+        pill = root.document.createElement("div");
+        pill.setAttribute("role", "status");
+        pill.style.cssText = "position:fixed;top:calc(10px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:60;padding:6px 12px;border-radius:999px;font:500 11px/1.2 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.06em;background:rgba(14,16,20,.8);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);white-space:nowrap;pointer-events:none";
+        root.document.body.appendChild(pill);
+      }
+      var st = engine.status || {};
+      var ago = st.at ? Math.max(0, Math.round((Date.now() - st.at) / 1000)) : null;
+      var ok = st.at && st.ok;
+      pill.style.display = "block";
+      pill.style.color = !st.at ? "#8b93a1" : ok ? "#5cf2a6" : "#ffcb5c";
+      pill.textContent = !st.at ? "\u25cb LIVE DATA \u00b7 CONNECTING" : ok
+        ? "\u25cf LIVE DATA OK \u00b7 " + (st.tracked || 0) + " SLIP" + (st.tracked === 1 ? "" : "S") + " \u00b7 " + (ago < 5 ? "JUST NOW" : ago + "S AGO")
+        : "\u25b2 ESPN UNREACHABLE \u00b7 RETRYING";
+    }
+    engine.onStatus = paint;
+    root.addEventListener("hashchange", paint);
+    setInterval(paint, 5000);
     var timer = 0;
     function schedule(ms) { clearTimeout(timer); timer = setTimeout(run, ms); }
     function run() {
