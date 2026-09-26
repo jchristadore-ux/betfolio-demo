@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Betfolio logo">
+  <rect width="512" height="512" rx="112" fill="#0a0e17"/>
+  <g fill="none" stroke="#3ddc84" stroke-width="40" stroke-linecap="round" stroke-linejoin="round">
+    <!-- B: stem is a rising arrow -->
+    <path d="M180 150 V430"/>
+    <path d="M180 150 l-30 44"/>
+    <path d="M180 150 l30 44"/>
+    <path d="M180 150 H292 a77 77 0 0 1 0 154 H180"/>
+    <path d="M180 304 H302 a73 73 0 0 1 0 146 H180"/>
+  </g>
+</svg>
